@@ -21,6 +21,7 @@
  */
 
 import UIKit
+import CoreData
 
 class ViewController: UIViewController {
 
@@ -29,6 +30,8 @@ class ViewController: UIViewController {
   fileprivate let venueCellIdentifier = "VenueCell"
 
   var coreDataStack: CoreDataStack!
+  var fetchRequest: NSFetchRequest<Venue>!
+  var venues: [Venue]!
 
   // MARK: - IBOutlets
   @IBOutlet weak var tableView: UITableView!
@@ -36,13 +39,21 @@ class ViewController: UIViewController {
   // MARK: - View Life Cycle
   override func viewDidLoad() {
     super.viewDidLoad()
+    
+    fetchRequest = Venue.fetchRequest()
+    fetchAndReload()
   }
 
   // MARK: - Navigation
   override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-    if segue.identifier == filterViewControllerSegueIdentifier {
+    
+    guard segue.identifier == filterViewControllerSegueIdentifier, let navController = segue.destination as? UINavigationController, let filterVC = navController.topViewController as? FilterViewController else {
       
+      return
     }
+    
+    filterVC.coreDataStack = coreDataStack
+    filterVC.delegate = self
   }
 }
 
@@ -53,17 +64,81 @@ extension ViewController {
   }
 }
 
+// MARK: - Helper Methods
+extension ViewController {
+  
+  func fetchAndReload() {
+    
+    do {
+      venues = try coreDataStack.managedContext.fetch(fetchRequest)
+      tableView.reloadData()
+    } catch let error as NSError {
+      print("Could not fetch \(error), \(error.userInfo)")
+    }
+  }
+}
+
 // MARK: - UITableViewDataSource
 extension ViewController: UITableViewDataSource {
 
   func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-    return 10
+    return venues.count
   }
 
   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCell(withIdentifier: venueCellIdentifier, for: indexPath)
-    cell.textLabel?.text = "Bubble Tea Venue"
-    cell.detailTextLabel?.text = "Price Info"
+    
+    let venue = venues[indexPath.row]
+    cell.textLabel?.text = venue.name
+    cell.detailTextLabel?.text = venue.priceInfo?.priceCategory
     return cell
   }
 }
+
+// MARK: - FilterViewControllerDelegate
+extension ViewController: FilterViewControllerDelegate {
+  
+  func filterViewController(filter: FilterViewController, didSelectPredicate predicate: NSPredicate?, sortDescriptor: NSSortDescriptor?) {
+    
+    fetchRequest.predicate = nil
+    fetchRequest.sortDescriptors = nil
+    
+    fetchRequest.predicate = predicate
+    
+    if let sr = sortDescriptor {
+      fetchRequest.sortDescriptors = [sr]
+    }
+    
+    fetchAndReload()
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
